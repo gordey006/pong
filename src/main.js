@@ -1,5 +1,37 @@
 import * as THREE from 'three';
 
+
+// СИСТЕМА ЗВУКОВ
+let audioCtx;
+
+function playHitSound() {
+    // Инициализируем AudioContext только после первого клика/нажатия (требование браузеров)
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    // Если контекст на паузе (браузер уснул), будим его
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    // Настройка звука: тип волны (square звучит как в старых играх), частота (высота звука)
+    oscillator.type = 'square';
+    oscillator.frequency.setValueAtTime(400, audioCtx.currentTime); // 400 Гц — стандартный звук Pong
+    // Делаем звук затухающим (чтобы не был резким)
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); 
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1); 
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.1); // Звук длится 0.1 секунды
+}
+
 // 1. Сцена
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050510);
@@ -168,6 +200,7 @@ function animate() {
         // 4. Отскок от верхней/нижней стены 
         if (ball.position.y > 5.5 || ball.position.y < -5.5) {
             ballSpeedY *= -1;
+            playHitSound();
         }
 
         // 5. Отскок от ракеток
@@ -178,6 +211,7 @@ function animate() {
             ballSpeedX *= -1.05; // Ускорение по диздоку (3-5%)
             // Добавляем зависимость угла от точки попадания
             ballSpeedY += (ball.position.y - playerPaddle.position.y) * 0.05;
+            playHitSound();
         }
         // ИИ
         if (ball.position.x > 8.6 && ball.position.x < 9.4 && 
@@ -185,6 +219,7 @@ function animate() {
             ball.position.y > aiPaddle.position.y - 1) {
             ballSpeedX *= -1.05;
             ballSpeedY += (ball.position.y - aiPaddle.position.y) * 0.05;
+            playHitSound();
         }
 
         // 6. Голы (выход за пределы)
