@@ -72,9 +72,9 @@ playerPaddle.position.set(-9, 0, 0);
 scene.add(playerPaddle);
 
 // ИИ (справа)
-const aiPaddle = new THREE.Mesh(paddleGeometry, paddleMaterial);
-aiPaddle.position.set(9, 0, 0);
-scene.add(aiPaddle);
+const player2Paddle = new THREE.Mesh(paddleGeometry, paddleMaterial);
+player2Paddle.position.set(9, 0, 0);
+scene.add(player2Paddle);
 
 // Мяч
 const ballGeometry = new THREE.CircleGeometry(0.25, 32);
@@ -98,35 +98,59 @@ const timerElement = document.getElementById('timer');
 const scoreElement = document.getElementById('score');
 const messageElement = document.getElementById('message');
 
+let gameMode = 'pve'; // 'pve' или 'pvp'
+
+// DOM элементы
+const mainMenu = document.getElementById('main-menu');
+const uiElement = document.getElementById('ui');
+const btnPve = document.getElementById('btn-pve');
+const btnPvp = document.getElementById('btn-pvp');
+
+btnPve.addEventListener('click', () => startMatch('pve'));
+btnPvp.addEventListener('click', () => startMatch('pvp'));
+
+function startMatch(mode) {
+    gameMode = mode;
+    mainMenu.classList.add('hidden');
+    uiElement.classList.remove('hidden');
+    startGame();
+}
+
 // Управление игроком
-const keys = { w: false, s: false };
+const keys = { 
+    p1_up: false, p1_down: false, 
+    p2_up: false, p2_down: false 
+};
 document.addEventListener('keydown', (e) => {
-    // Управление
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ц' || e.key === 'Ц') keys.w = true;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы') keys.s = true;
+    // Игрок 1 (WASD)
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ц' || e.key === 'Ц') keys.p1_up = true;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы') keys.p1_down = true;
     
-    // Пауза (Esc)
+    // Игрок 2 (Стрелки) — только в режиме PvP
+    if (gameMode === 'pvp') {
+        if (e.key === 'ArrowUp') keys.p2_up = true;
+        if (e.key === 'ArrowDown') keys.p2_down = true;
+    }
+
     if (e.key === 'Escape' && isGameRunning) {
         isPaused = !isPaused;
         messageElement.textContent = isPaused ? "ПАУЗА (Esc чтобы продолжить)" : "";
     }
 
-    // Пробел (Начало игры или подача после гола)
     if (e.key === ' ') {
         if (!isGameRunning) {
             startGame();
-            isWaitingForServe = false; 
-            messageElement.textContent = "";
         } else if (isWaitingForServe && !isPaused) {
-            isWaitingForServe = false; // Подача после гола
+            isWaitingForServe = false;
             messageElement.textContent = "";
         }
     }
-
 });
 document.addEventListener('keyup', (e) => {
-    if (e.key === 'w' || e.key === 'W' || e.key === 'ц' || e.key === 'Ц') keys.w = false;
-    if (e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы') keys.s = false;
+    if (e.key === 'w' || e.key === 'W' || e.key === 'ц' || e.key === 'Ц') keys.p1_up = false;
+    if (e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы') keys.p1_down = false;
+    if (e.key === 'ArrowUp') keys.p2_up = false;
+    if (e.key === 'ArrowDown') keys.p2_down = false;
 });
 function startGame() {
     isGameRunning = true;
@@ -153,7 +177,8 @@ function checkWinCondition() {
         if (playerScore >= 5) {
             messageElement.textContent = "Победа! Нажми Пробел для рестарта";
         } else {
-            messageElement.textContent = "Поражение! Нажми Пробел для рестарта";
+            const winner = gameMode === 'pve' ? "ИИ" : "Игрок 2";
+            messageElement.textContent = `Победа: ${winner}! Нажми Пробел для рестарта`;
         }
         // Сбрасываем счет для следующей игры
         playerScore = 0;
@@ -181,16 +206,22 @@ function animate() {
             const seconds = Math.floor(timeElapsed % 60).toString().padStart(2, '0');
             timerElement.textContent = `${minutes}:${seconds}`;
         }
-        if (keys.w && playerPaddle.position.y < 4.7) playerPaddle.position.y += 0.09;
-        if (keys.s && playerPaddle.position.y > -4.7) playerPaddle.position.y -= 0.09;      
+        // Игрок 1
+    if (keys.p1_up && playerPaddle.position.y < 4.7) playerPaddle.position.y += 0.09;
+    if (keys.p1_down && playerPaddle.position.y > -4.7) playerPaddle.position.y -= 0.09;
 
-        // 2. Движение ИИ (следует за мячом с задержкой)
+    // Игрок 2 / ИИ
+    if (gameMode === 'pve') {
         const aiTargetY = ball.position.y;
-        const aiSpeed = 0.08; // Ограничение скорости ИИ
-        if (aiPaddle.position.y < aiTargetY - 0.1) aiPaddle.position.y += aiSpeed;
-        if (aiPaddle.position.y > aiTargetY + 0.1) aiPaddle.position.y -= aiSpeed;
-        // Ограничение для ИИ
-        aiPaddle.position.y = Math.max(-4.7, Math.min(4.7, aiPaddle.position.y));
+        const aiSpeed = 0.08;
+        if (player2Paddle.position.y < aiTargetY - 0.1) player2Paddle.position.y += aiSpeed;
+        if (player2Paddle.position.y > aiTargetY + 0.1) player2Paddle.position.y -= aiSpeed;
+        player2Paddle.position.y = Math.max(-4.7, Math.min(4.7, player2Paddle.position.y));
+        } 
+    else {
+        if (keys.p2_up && player2Paddle.position.y < 4.7) player2Paddle.position.y += 0.09;
+        if (keys.p2_down && player2Paddle.position.y > -4.7) player2Paddle.position.y -= 0.09;
+    }
 
         // 3. Движение мяча
         if (!isWaitingForServe) {
@@ -202,6 +233,7 @@ function animate() {
             ballSpeedY *= -1;
             playHitSound();
         }
+        
 
         // 5. Отскок от ракеток
         // Игрок
@@ -215,10 +247,10 @@ function animate() {
         }
         // ИИ
         if (ball.position.x > 8.6 && ball.position.x < 9.4 && 
-            ball.position.y < aiPaddle.position.y + 1 && 
-            ball.position.y > aiPaddle.position.y - 1) {
+            ball.position.y < player2Paddle.position.y + 1 && 
+            ball.position.y > player2Paddle.position.y - 1) {
             ballSpeedX *= -1.05;
-            ballSpeedY += (ball.position.y - aiPaddle.position.y) * 0.05;
+            ballSpeedY += (ball.position.y - player2Paddle.position.y) * 0.05;
             playHitSound();
         }
 
@@ -248,4 +280,5 @@ function updateScore() {
 
 animate();
 resetBall();
+mainMenu.classList.remove('hidden');
 renderer.render(scene, camera);
