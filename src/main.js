@@ -278,6 +278,7 @@ function updateScore() {
     scoreElement.textContent = `${playerScore} : ${aiScore}`;
 }
 
+
 animate();
 resetBall();
 mainMenu.classList.remove('hidden');
